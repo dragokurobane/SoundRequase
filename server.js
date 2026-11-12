@@ -67,7 +67,7 @@ http.createServer(async (req, res) => {
       if (p === '/api/chat') {
         const b = await readJson(req), text = clip(b.text, 200);
         if (!text) return send(res, 400, 'empty');
-        chat.push({ id: crypto.randomBytes(4).toString('hex'), name: clip(b.name, 24) || 'ไม่ระบุชื่อ', text, t: Date.now() });
+        chat.push({ name: clip(b.name, 24) || 'ไม่ระบุชื่อ', text, t: Date.now() });
         push(); return json(res, { ok: true });
       }
       if (p === '/api/next' || p === '/api/start') {
