@@ -15,25 +15,34 @@ button,input{font:inherit}
 input[type=text]{width:100%;padding:12px;border-radius:10px;border:1px solid var(--bd);background:var(--card);color:var(--tx)}
 button{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:12px 16px;cursor:pointer;font-weight:600}
 .card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:14px}
-#screen{display:grid;grid-template-columns:340px 1fr 250px;grid-template-rows:auto 1fr;gap:14px;height:100%;padding:14px}
-#qrbox{text-align:center;grid-column:1;grid-row:1}
-#qr{display:inline-block;background:#fff;padding:16px;border-radius:12px;margin-top:6px}
-#qr img,#qr canvas{display:block}
-#videoBox{grid-column:2;grid-row:1/3;position:relative;background:#000;border-radius:16px;overflow:hidden}
+/* จอใหญ่: แถบซ้ายแนวตั้ง (QR + คิวเพลง) · ขวา = กล่องวิดีโอ 16:9 อยู่กลางพื้นที่ที่เหลือ */
+#screen{display:grid;grid-template-columns:320px minmax(0,1fr);grid-template-rows:minmax(0,1fr);gap:14px;height:100%;padding:14px;--qr:clamp(150px,22vh,220px)}
+#side{display:flex;flex-direction:column;gap:14px;min-height:0;min-width:0}
+#qrbox{flex:0 0 auto;text-align:center}
+#qr{display:inline-block;background:#fff;padding:12px;border-radius:12px;margin-top:6px;line-height:0}
+#qr img,#qr canvas{display:block;width:var(--qr);height:var(--qr)}
+#queueBox{flex:1;min-height:0;display:flex;flex-direction:column;gap:8px}
+#qlist{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:0;scrollbar-width:thin}
+.qi{flex:0 0 auto;display:flex;gap:10px;align-items:center;padding:8px 12px;border-radius:10px;background:var(--bg);font-size:15px}
+.qi .n{color:var(--ac);font-weight:700;font-size:22px;min-width:24px;text-align:center}
+.qi .t{overflow:hidden;font-weight:600;line-height:1.3;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+.qi .b{font-size:12px;font-weight:400;color:var(--mu);-webkit-line-clamp:1}
+#stage{container-type:size;display:flex;align-items:center;justify-content:center;min-width:0;min-height:0}
+#videoBox{position:relative;width:min(100cqw,calc(100cqh * 16 / 9));aspect-ratio:16/9;background:#000;border-radius:16px;overflow:hidden}
+#videoBox:fullscreen{border-radius:0}
 #player,#player iframe,#player video{width:100%;height:100%;border:0;display:block}
-#queueBox{grid-column:3;grid-row:1/3;display:flex;flex-direction:column;min-height:0;gap:8px}
-#qlist{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:0}
-.qi{display:flex;gap:8px;align-items:center;padding:8px 10px;border-radius:10px;background:var(--bg);font-size:14px}
-.qi .n{color:var(--ac);font-weight:700;min-width:18px}
-.qi .t{overflow:hidden;white-space:nowrap;text-overflow:ellipsis}
-.qi .b{font-size:12px;color:var(--mu)}
-#chatBox{grid-column:1;grid-row:2;display:flex;flex-direction:column;min-height:0}
 .msgs{flex:1;overflow-y:auto;display:flex;flex-direction:column;gap:6px;min-height:0}
+/* แชทลอยบนวิดีโอ (ขวา→ซ้าย) */
+#danmaku{position:absolute;left:0;right:0;top:56px;bottom:56px;overflow:hidden;pointer-events:none;z-index:1}
+.dm{position:absolute;left:0;white-space:nowrap;font-weight:700;line-height:1.5;color:#fff;will-change:transform;
+  text-shadow:-1px -1px 0 #000,1px -1px 0 #000,-1px 1px 0 #000,1px 1px 0 #000,0 2px 6px rgba(0,0,0,.6)}
+.dm .dn{font-size:.72em;font-weight:600;margin-right:.55em}
 .msg b{color:var(--ac)}
 .small{font-size:13px;color:var(--mu)}
 #overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff;text-align:center;padding:20px}
 #nowbar{position:absolute;left:0;right:0;top:0;padding:10px 14px;background:linear-gradient(rgba(0,0,0,.75),transparent);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px;z-index:2;pointer-events:none}
 #nowbar button{pointer-events:auto;background:#0008;border:1px solid #fff8}
+.nbtn{display:flex;gap:8px;flex:0 0 auto}
 #remote{max-width:520px;margin:0 auto;padding:14px;display:flex;flex-direction:column;gap:12px}
 .tabs{display:grid;grid-template-columns:1fr 1fr;gap:8px}
 .tabs button{background:var(--card);color:var(--tx);border:1px solid var(--bd)}
@@ -42,26 +51,32 @@ button{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:12px 
 .row{display:flex;gap:8px}
 label.file{display:block;border:2px dashed var(--bd);border-radius:12px;padding:14px;text-align:center;color:var(--mu);cursor:pointer}
 @media (max-width:800px){
-  #screen{grid-template-columns:1fr;grid-template-rows:auto 40vh auto auto;overflow:auto;height:auto}
-  #qrbox{grid-row:1}#videoBox{grid-column:1;grid-row:2}#queueBox{grid-column:1;grid-row:3;max-height:220px}#chatBox{grid-column:1;grid-row:4;min-height:200px}
+  #screen{grid-template-columns:minmax(0,1fr);grid-template-rows:auto auto;overflow:auto;height:auto}
+  #stage{order:-1;container-type:normal;display:block}
+  #videoBox{width:100%}
+  #queueBox{flex:none;max-height:220px}
 }
 </style>
 </head>
 <body>
 
 <div id="screen" class="hide">
-  <div id="qrbox" class="card">
-    <b>สแกนเพื่อขอเพลง / แชท</b><br>
-    <div id="qr"></div>
-    <div id="qrUrl" class="small" style="word-break:break-all;margin-top:8px"></div>
+  <div id="side">
+    <div id="qrbox" class="card">
+      <b>สแกนเพื่อขอเพลง / แชท</b><br>
+      <div id="qr"></div>
+      <div id="qrUrl" class="small" style="word-break:break-all;margin-top:8px"></div>
+    </div>
+    <div id="queueBox" class="card"><b id="qhead">🎶 คิวเพลง</b><div id="qlist"></div></div>
   </div>
-  <div id="videoBox">
-    <div id="player"></div>
-    <div id="overlay"><div style="font-size:28px;font-weight:700">🎵 ขอเพลงหน้าจอ</div><div id="ovText">สแกน QR เพื่อขอเพลง</div><button id="startBtn">▶ เริ่มเล่น</button></div>
-    <div id="nowbar" class="hide"><span id="nowTxt"></span><button id="skipBtn">ข้าม ⏭</button></div>
+  <div id="stage">
+    <div id="videoBox">
+      <div id="player"></div>
+      <div id="overlay"><div style="font-size:28px;font-weight:700">🎵 ขอเพลงหน้าจอ</div><div id="ovText">สแกน QR เพื่อขอเพลง</div><button id="startBtn">▶ เริ่มเล่น</button></div>
+      <div id="danmaku"></div>
+      <div id="nowbar" class="hide"><span id="nowTxt"></span><span class="nbtn"><button id="fsBtn" title="เต็มจอ">⛶</button><button id="skipBtn">ข้าม ⏭</button></span></div>
+    </div>
   </div>
-  <div id="queueBox" class="card"><b id="qhead">🎶 คิวเพลง</b><div id="qlist"></div></div>
-  <div id="chatBox" class="card"><b style="margin-bottom:6px">💬 แชท</b><div class="msgs" id="msgsS"></div></div>
 </div>
 
 <div id="remote" class="hide">
@@ -97,7 +112,7 @@ const nick = () => ($("nick").value || "").trim() || "ไม่ระบุช�
 const pending = () => queue.filter(x => !x.played);
 const nameOf = it => it.type === "yt" ? (titles[it.vid] || it.title) : it.title;
 
-function renderChat(el){
+function renderChat(el){                                       // รายการแชทบนมือถือ
   el.textContent = "";
   chat.slice(-60).forEach(m => {
     const d = document.createElement("div"); d.className = "msg";
@@ -107,12 +122,49 @@ function renderChat(el){
   el.scrollTop = el.scrollHeight;
 }
 
+/* ---------- แชทลอยบนวิดีโอ (จอใหญ่) วิ่งขวา→ซ้าย ---------- */
+const dm = {lanes:[], seen:new Set(), first:true, wait:[], timer:0};
+const hue = s => { let h = 0; for (const c of s) h = (h * 31 + c.codePointAt(0)) % 360; return h; };
+function danmakuFeed(){
+  const fresh = chat.filter(m => !dm.seen.has(m.id));
+  fresh.forEach(m => dm.seen.add(m.id));
+  if (dm.seen.size > 500) dm.seen = new Set(chat.map(m => m.id));
+  if (dm.first){ dm.first = false; return; }                   // ข้อความเก่าก่อนเปิดจอ ไม่ต้องลอย
+  dm.wait.push(...fresh);
+  if (dm.wait.length > 40) dm.wait.splice(0, dm.wait.length - 40);
+  danmakuPump();
+}
+function danmakuPump(){
+  const layer = $("danmaku"), W = layer.clientWidth, H = layer.clientHeight;
+  if (!W || !H) return;
+  const fs = Math.max(18, Math.min(36, H * 0.045)), laneH = Math.round(fs * 1.5);
+  const n = Math.max(1, Math.floor(H / laneH));
+  const v = Math.max(110, Math.min(260, W / 9));               // px/วินาที: ทุกข้อความเร็วเท่ากัน จึงไม่ซ้อนกันในเลนเดียวกัน
+  const now = performance.now();
+  while (dm.wait.length){
+    let lane = -1;
+    for (let i = 0; i < n; i++) if ((dm.lanes[i] || 0) <= now){ lane = i; break; }   // เลนบนสุดที่ว่างก่อน
+    if (lane < 0) break;
+    const m = dm.wait.shift();
+    const el = document.createElement("div"); el.className = "dm";
+    el.style.fontSize = fs + "px"; el.style.top = lane * laneH + "px";
+    const nm = document.createElement("span"); nm.className = "dn"; nm.textContent = m.name;
+    nm.style.color = "hsl(" + hue(m.name) + " 90% 72%)";
+    el.append(nm, document.createTextNode(m.text)); layer.append(el);
+    const w = el.offsetWidth;
+    dm.lanes[lane] = now + (w + fs * 2) / v * 1000;            // หางข้อความเข้าจอครบ + เว้นระยะ เลนนี้ถึงจะว่าง
+    el.animate([{transform:"translateX(" + W + "px)"}, {transform:"translateX(" + (-w) + "px)"}],
+      {duration:(W + w) / v * 1000, easing:"linear", fill:"both"}).onfinish = () => el.remove();
+  }
+  clearTimeout(dm.timer); dm.timer = dm.wait.length ? setTimeout(danmakuPump, 250) : 0;   // ยังมีค้าง → ลองใหม่
+}
+
 /* ---------- รายการคิว ---------- */
 function renderQueue(){
   const p = pending();
   if (isRemote){ $("queueR").textContent = p.length ? "คิวเพลงตอนนี้: " + p.length + " เพลง" : "ยังไม่มีคิว ขอเพลงแรกได้เลย!"; return; }
   $("qhead").textContent = "🎶 คิวเพลง (" + p.length + ")";
-  const box = $("qlist"); box.textContent = "";
+  const box = $("qlist"), sy = box.scrollTop; box.textContent = "";
   if (!p.length){ const e = document.createElement("div"); e.className = "small"; e.textContent = "ยังไม่มีคิว"; box.append(e); }
   p.forEach((it, i) => {
     const r = document.createElement("div"); r.className = "qi";
@@ -127,6 +179,7 @@ function renderQueue(){
         .then(r => r.json()).then(j => { titles[it.vid] = j.title || ""; renderQueue(); }).catch(() => {});
     }
   });
+  box.scrollTop = sy;                                   // รีเฟรชแล้วไม่เด้งกลับไปบนสุด
 }
 
 /* ---------- ตัวเล่น (จอใหญ่) ---------- */
@@ -163,7 +216,7 @@ function startPlay(it, fromOld){
     const d = document.createElement("div"); d.id = "ytp"; box.append(d);
     new YT.Player("ytp", {
       videoId: it.vid, width: "100%", height: "100%",
-      playerVars: {autoplay:1, rel:0, playsinline:1},
+      playerVars: {autoplay:1, rel:0, playsinline:1, fs:0},     // fs:0 = ปุ่มเต็มจอของเราเอง เพื่อให้แชทลอยยังเห็นตอนเต็มจอ
       events: {
         onReady: e => { e.target.playVideo(); try { const t = e.target.getVideoData().title; if (t){ titles[it.vid] = t; $("nowTxt").textContent = label(); } } catch(_){} },
         onStateChange: e => { if (e.data === 0) ended(my); },   // 0 = จบคลิป
@@ -172,7 +225,7 @@ function startPlay(it, fromOld){
     });
   } else {
     const v = document.createElement("video");
-    v.src = it.url; v.controls = true; v.autoplay = true;
+    v.src = it.url; v.controls = true; v.autoplay = true; v.controlsList = "nofullscreen";
     v.addEventListener("ended", () => ended(my));
     v.addEventListener("error", () => ended(my));
     box.append(v);
@@ -184,7 +237,7 @@ function connect(){
   const es = new EventSource("/events");
   es.onmessage = e => {
     const s = JSON.parse(e.data); queue = s.queue; chat = s.chat;
-    onQueue(); renderChat($(isRemote ? "msgsR" : "msgsS"));
+    onQueue(); isRemote ? renderChat($("msgsR")) : danmakuFeed();
   };
 }
 async function initScreen(){
@@ -196,11 +249,16 @@ async function initScreen(){
     try { const i = await (await fetch("/api/info")).json();
       if (i.ips[0]) url = "http://" + i.ips[0] + ":" + i.port + "/remote"; } catch(e){}
   }
-  try { new QRCode($("qr"), {text:url, width:240, height:240, correctLevel:QRCode.CorrectLevel.L}); }
+  try { new QRCode($("qr"), {text:url, width:300, height:300, correctLevel:QRCode.CorrectLevel.L}); }   // สร้างใหญ่ แล้วให้ CSS ย่อตามความสูงจอ
   catch(e){ $("qr").textContent = "QR ไม่ขึ้น (ต้องต่ออินเทอร์เน็ต)"; }
   $("qrUrl").textContent = url;
   $("startBtn").onclick = () => { started = true; $("startBtn").classList.add("hide"); $("ovText").textContent = "สแกน QR เพื่อขอเพลง"; if (!cur) pickNext(); };
   $("skipBtn").onclick = () => ended(token);
+  $("fsBtn").onclick = () => {
+    const box = $("videoBox");
+    if (document.fullscreenElement) document.exitFullscreen();
+    else (box.requestFullscreen || box.webkitRequestFullscreen).call(box);
+  };
 }
 function initRemote(){
   $("remote").classList.remove("hide");
