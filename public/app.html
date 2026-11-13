@@ -40,6 +40,7 @@ button{background:var(--ac);color:#fff;border:0;border-radius:10px;padding:12px 
 .msg b{color:var(--ac)}
 .small{font-size:13px;color:var(--mu)}
 #overlay{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;color:#fff;text-align:center;padding:20px}
+#overlay.dim{background:rgba(0,0,0,.6)}
 #nowbar{position:absolute;left:0;right:0;top:0;padding:10px 14px;background:linear-gradient(rgba(0,0,0,.75),transparent);color:#fff;display:flex;justify-content:space-between;align-items:center;gap:10px;z-index:2;pointer-events:none}
 #nowbar button{pointer-events:auto;background:#0008;border:1px solid #fff8}
 .nbtn{display:flex;gap:8px;flex:0 0 auto}
@@ -72,7 +73,7 @@ label.file{display:block;border:2px dashed var(--bd);border-radius:12px;padding:
   <div id="stage">
     <div id="videoBox">
       <div id="player"></div>
-      <div id="overlay"><div style="font-size:28px;font-weight:700">🎵 ขอเพลงหน้าจอ</div><div id="ovText">สแกน QR เพื่อขอเพลง</div><button id="startBtn">▶ เริ่มเล่น</button></div>
+      <div id="overlay" class="hide"><div id="ovTitle" style="font-size:28px;font-weight:700"></div><div id="ovText"></div><button id="startBtn" class="hide">▶ เริ่มเล่น</button></div>
       <div id="danmaku"></div>
       <div id="nowbar" class="hide"><span id="nowTxt"></span><span class="nbtn"><button id="fsBtn" title="เต็มจอ">⛶</button><button id="skipBtn">ข้าม ⏭</button></span></div>
     </div>
@@ -102,7 +103,7 @@ label.file{display:block;border:2px dashed var(--bd);border-radius:12px;padding:
 const isRemote = location.pathname === "/remote";
 const $ = id => document.getElementById(id);
 let queue = [], chat = [];
-let started = false, cur = null, lastId = null, token = 0;   // เฉพาะจอใหญ่
+let cur = null, curPlayer = null, token = 0, lastSkip = null, wasPlaying = false;   // เฉพาะจอใหญ่
 let ytReady = false, ytWait = null;
 const titles = {};                                            // ชื่อเพลง YouTube ที่ดึงมาได้
 
@@ -185,50 +186,63 @@ function renderQueue(){
 /* ---------- ตัวเล่น (จอใหญ่) ---------- */
 function onQueue(){
   renderQueue();
-  if (!isRemote && started && !cur) pickNext();        // ว่างอยู่ แล้วมีเพลงเข้ามา → เล่นเลย
+  if (!isRemote && !cur) pickNext();                    // ว่างอยู่ แล้วมีเพลงเข้ามา (หรือเพิ่งเปิดหน้า) → เล่นเลย
+}
+function showOverlay(kind){                             // "idle" = คิวว่าง · "blocked" = เบราว์เซอร์บล็อกเล่นเอง · null = ซ่อน
+  const b = kind === "blocked";
+  $("overlay").classList.toggle("hide", !kind); $("overlay").classList.toggle("dim", b);
+  $("ovTitle").textContent = b ? "▶ พร้อมเล่นแล้ว" : "🎵 คิวว่าง";
+  $("ovText").textContent = b ? "เบราว์เซอร์ไม่อนุญาตให้เล่นเสียงอัตโนมัติ กดปุ่มเพื่อเริ่ม" : "ยังไม่มีเพลงในคิว · สแกน QR เพื่อขอเพลง";
+  $("startBtn").classList.toggle("hide", !b);
 }
 function pickNext(){
   const p = pending();
-  if (p.length){                                        // มีคิว → เล่นคิวก่อนเสมอ
-    p[0].played = true; post("/api/start", {id:p[0].id});
-    return startPlay(p[0], false);
+  if (p.length){
+    p[0].played = true; wasPlaying = true; post("/api/start", {id:p[0].id});
+    return startPlay(p[0]);
   }
-  const old = queue.filter(x => x.played);              // ไม่มีคิว → สุ่มเพลงเก่า
-  const pool = old.filter(x => x.id !== lastId);
-  const list = pool.length ? pool : old;
-  if (list.length) return startPlay(list[Math.floor(Math.random() * list.length)], true);
-  cur = null; $("player").textContent = ""; $("nowbar").classList.add("hide");
-  $("overlay").classList.remove("hide"); $("startBtn").classList.add("hide");
-  $("ovText").textContent = "สแกน QR เพื่อขอเพลง";
+  cur = null; curPlayer = null;                         // ไม่มีคิว → หน้าคิวว่าง (ไม่สุ่มเพลงเก่าแล้ว)
+  $("player").textContent = ""; $("nowbar").classList.add("hide"); showOverlay("idle");
+  if (wasPlaying){ wasPlaying = false; post("/api/idle", {}); }
 }
 function ended(my){
   if (my !== token) return;                             // กันเรียกซ้ำ
-  lastId = cur && cur.id; cur = null; pickNext();
+  cur = null; curPlayer = null; pickNext();
 }
-function startPlay(it, fromOld){
-  cur = it; const my = ++token;
-  $("overlay").classList.add("hide"); $("nowbar").classList.remove("hide");
-  const label = () => "▶ " + nameOf(it) + " · ขอโดย " + it.by + (fromOld ? "  🔀 สุ่มจากเพลงเก่า" : "");
+function startPlay(it){
+  cur = it; curPlayer = null; const my = ++token;
+  showOverlay(null); $("nowbar").classList.remove("hide");
+  const label = () => "▶ " + nameOf(it) + " · ขอโดย " + it.by;
   $("nowTxt").textContent = label();
   const box = $("player"); box.textContent = "";
+  const blocked = () => { if (my === token && cur) showOverlay("blocked"); };   // เบราว์เซอร์ไม่ยอมเล่นเอง → ขอให้กดปุ่ม
+  const playing = () => { if (my === token && cur) showOverlay(null); };
   if (it.type === "yt"){
-    if (!ytReady){ ytWait = () => { if (my === token) startPlay(it, fromOld); }; return; }
+    if (!ytReady){ ytWait = () => { if (my === token) startPlay(it); }; return; }
     const d = document.createElement("div"); d.id = "ytp"; box.append(d);
     new YT.Player("ytp", {
       videoId: it.vid, width: "100%", height: "100%",
       playerVars: {autoplay:1, rel:0, playsinline:1, fs:0},     // fs:0 = ปุ่มเต็มจอของเราเอง เพื่อให้แชทลอยยังเห็นตอนเต็มจอ
       events: {
-        onReady: e => { e.target.playVideo(); try { const t = e.target.getVideoData().title; if (t){ titles[it.vid] = t; $("nowTxt").textContent = label(); } } catch(_){} },
-        onStateChange: e => { if (e.data === 0) ended(my); },   // 0 = จบคลิป
+        onReady: e => {
+          if (my !== token) return;
+          curPlayer = e.target; e.target.playVideo();
+          try { const t = e.target.getVideoData().title; if (t){ titles[it.vid] = t; $("nowTxt").textContent = label(); } } catch(_){}
+          setTimeout(() => { try { const s = e.target.getPlayerState(); if (s !== 1 && s !== 3) blocked(); } catch(_){} }, 4000);   // 4 วิแล้วยังไม่เล่น = ถูกบล็อก
+        },
+        onAutoplayBlocked: blocked,
+        onStateChange: e => { if (e.data === 0) ended(my); else if (e.data === 1) playing(); },   // 0 = จบคลิป, 1 = กำลังเล่น
         onError: () => ended(my)                                // ฝังไม่ได้/ถูกลบ → ข้าม
       }
     });
   } else {
     const v = document.createElement("video");
-    v.src = it.url; v.controls = true; v.autoplay = true; v.controlsList = "nofullscreen";
+    v.src = it.url; v.controls = true; v.playsInline = true; v.controlsList = "nofullscreen";
     v.addEventListener("ended", () => ended(my));
     v.addEventListener("error", () => ended(my));
+    v.addEventListener("playing", playing);
     box.append(v);
+    v.play().catch(err => { if (err && err.name === "NotAllowedError") blocked(); });
   }
 }
 
@@ -237,6 +251,10 @@ function connect(){
   const es = new EventSource("/events");
   es.onmessage = e => {
     const s = JSON.parse(e.data); queue = s.queue; chat = s.chat;
+    if (!isRemote){                                      // สั่งข้ามจากหลังบ้าน
+      if (lastSkip !== null && s.skip > lastSkip && cur) ended(token);
+      lastSkip = s.skip;
+    }
     onQueue(); isRemote ? renderChat($("msgsR")) : danmakuFeed();
   };
 }
@@ -252,7 +270,11 @@ async function initScreen(){
   try { new QRCode($("qr"), {text:url, width:300, height:300, correctLevel:QRCode.CorrectLevel.L}); }   // สร้างใหญ่ แล้วให้ CSS ย่อตามความสูงจอ
   catch(e){ $("qr").textContent = "QR ไม่ขึ้น (ต้องต่ออินเทอร์เน็ต)"; }
   $("qrUrl").textContent = url;
-  $("startBtn").onclick = () => { started = true; $("startBtn").classList.add("hide"); $("ovText").textContent = "สแกน QR เพื่อขอเพลง"; if (!cur) pickNext(); };
+  $("startBtn").onclick = () => {                       // ใช้เฉพาะตอนเบราว์เซอร์บล็อกการเล่นเอง
+    showOverlay(null);
+    try { curPlayer && curPlayer.playVideo(); } catch(_){}
+    const v = $("player").querySelector("video"); if (v) v.play().catch(() => {});
+  };
   $("skipBtn").onclick = () => ended(token);
   $("fsBtn").onclick = () => {
     const box = $("videoBox");

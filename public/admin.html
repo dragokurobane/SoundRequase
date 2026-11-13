@@ -1,0 +1,125 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>หลังบ้าน · ขอเพลง</title>
+<style>
+:root{--bg:#f4f1ec;--card:#fff;--tx:#1b1b1f;--mu:#6b6b76;--ac:#e0457b;--bd:#ddd8d0;--dg:#c0392b}
+@media (prefers-color-scheme:dark){:root{--bg:#101015;--card:#1b1b23;--tx:#f2f2f6;--mu:#9a9aa8;--ac:#ff5c93;--bd:#2c2c38;--dg:#e5604f;color-scheme:dark}}
+*{box-sizing:border-box}html,body{margin:0}
+body{background:var(--bg);color:var(--tx);font-family:"Sarabun","Noto Sans Thai",system-ui,sans-serif;font-size:16px}
+button{font:inherit;background:var(--ac);color:#fff;border:0;border-radius:10px;padding:10px 14px;cursor:pointer;font-weight:600}
+button:disabled{opacity:.4;cursor:not-allowed}
+button.ghost{background:transparent;color:var(--tx);border:1px solid var(--bd)}
+button.danger{background:var(--dg);color:#fff}
+button.ghost.danger{background:transparent;color:var(--dg);border:1px solid var(--dg)}
+.card{background:var(--card);border:1px solid var(--bd);border-radius:16px;padding:16px}
+.small{font-size:13px;color:var(--mu)}
+#app{max-width:760px;margin:0 auto;padding:16px;display:flex;flex-direction:column;gap:14px}
+header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+h1{font-size:22px;margin:0}
+#conn{font-size:13px;color:var(--mu)}
+#conn::before{content:"●";margin-right:6px;color:#2ea043}
+#conn.off::before{color:var(--dg)}
+.head{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-bottom:10px}
+.lbl{font-size:13px;color:var(--mu);margin-bottom:4px}
+#nowTitle{font-size:20px;font-weight:700;word-break:break-word}
+#now{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap}
+#qlist{display:flex;flex-direction:column;gap:8px}
+.qi{display:grid;grid-template-columns:32px 1fr auto;gap:10px;align-items:center;padding:10px 12px;border-radius:12px;background:var(--bg)}
+.qi .n{color:var(--ac);font-weight:700;font-size:20px;text-align:center}
+.qi .t{font-weight:600;word-break:break-word}
+.qi .btns{display:flex;gap:6px}
+.qi .btns button{padding:8px 10px;font-size:14px}
+#toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(20px);background:#222;color:#fff;padding:10px 16px;border-radius:10px;opacity:0;pointer-events:none;transition:.2s;max-width:90vw}
+#toast.on{opacity:1;transform:translateX(-50%)}
+@media (max-width:520px){.qi{grid-template-columns:28px 1fr}.qi .btns{grid-column:1/3;justify-content:flex-end}}
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <h1>🛠 หลังบ้าน</h1>
+    <div style="display:flex;align-items:center;gap:12px;flex-wrap:wrap">
+      <span id="conn">กำลังเชื่อมต่อ…</span>
+      <button id="openScreen">🖥 เปิดหน้าจอ (QR)</button>
+    </div>
+  </header>
+  <div class="small" style="margin-top:-6px">หน้าจอ (QR + วิดีโอ) จะเปิดเป็นอีกหน้าต่างหนึ่ง ลากไปไว้จอโปรเจกเตอร์/ทีวีได้ เพลงจะเล่นที่หน้านั้น หน้านี้ใช้ควบคุมคิวเท่านั้น</div>
+
+  <section class="card" id="now">
+    <div>
+      <div class="lbl">กำลังเล่น</div>
+      <div id="nowTitle">—</div>
+      <div id="nowBy" class="small"></div>
+    </div>
+    <button id="skip" class="danger">⏭ ข้ามเพลงนี้</button>
+  </section>
+
+  <section class="card">
+    <div class="head"><b id="qhead">🎶 คิวเพลง</b><button id="clear" class="ghost danger">🗑 ล้างคิว</button></div>
+    <div id="qlist"></div>
+  </section>
+</div>
+<div id="toast"></div>
+
+<script>
+const $ = id => document.getElementById(id);
+let queue = [], now = null;
+const titles = {};                                            // ชื่อเพลง YouTube ที่ดึงมาได้
+const pending = () => queue.filter(x => !x.played);
+const nameOf = it => it.type === "yt" ? (titles[it.vid] || it.title) : it.title;
+
+let tt;
+const toast = m => { const t = $("toast"); t.textContent = m; t.classList.add("on"); clearTimeout(tt); tt = setTimeout(() => t.classList.remove("on"), 2200); };
+async function act(url, data, okMsg){
+  try {
+    const r = await fetch(url, {method:"POST", headers:{"Content-Type":"application/json"}, body:JSON.stringify(data || {})});
+    if (!r.ok) throw new Error(r.status === 401 ? "รหัสผ่านไม่ถูกต้อง" : "รหัส " + r.status);
+    if (okMsg) toast(okMsg);
+  } catch(e){ toast("ทำไม่สำเร็จ: " + e.message); }
+}
+
+function mkBtn(label, cls, fn){ const b = document.createElement("button"); b.textContent = label; if (cls) b.className = cls; b.onclick = fn; return b; }
+
+function render(){
+  const cur = queue.find(x => x.id === now);
+  $("nowTitle").textContent = cur ? nameOf(cur) : "ไม่มีเพลงที่กำลังเล่น";
+  $("nowBy").textContent = cur ? "ขอโดย " + cur.by : "คิวว่าง หรือยังไม่ได้เปิดหน้าจอ";
+  $("skip").disabled = !cur;
+  const p = pending();
+  $("qhead").textContent = "🎶 คิวเพลง (" + p.length + ")"; $("clear").disabled = !p.length;
+  const box = $("qlist"); box.textContent = "";
+  if (!p.length){ const e = document.createElement("div"); e.className = "small"; e.textContent = "ยังไม่มีคิว"; box.append(e); }
+  p.forEach((it, i) => {
+    const r = document.createElement("div"); r.className = "qi";
+    const n = document.createElement("div"); n.className = "n"; n.textContent = i + 1;
+    const w = document.createElement("div");
+    const t = document.createElement("div"); t.className = "t"; t.textContent = nameOf(it);
+    const b = document.createElement("div"); b.className = "small"; b.textContent = "ขอโดย " + it.by;
+    w.append(t, b);
+    const btns = document.createElement("div"); btns.className = "btns";
+    if (i > 0) btns.append(mkBtn("⬆ เล่นถัดไป", "ghost", () => act("/api/admin/top", {id:it.id}, "ย้ายขึ้นเป็นเพลงถัดไปแล้ว")));
+    btns.append(mkBtn("✕ ลบ", "ghost danger", () => act("/api/admin/remove", {id:it.id}, "ลบออกจากคิวแล้ว")));
+    r.append(n, w, btns); box.append(r);
+    if (it.type === "yt" && !(it.vid in titles)){
+      titles[it.vid] = "";            // กันดึงซ้ำ
+      fetch("https://www.youtube.com/oembed?format=json&url=" + encodeURIComponent("https://www.youtube.com/watch?v=" + it.vid))
+        .then(r => r.json()).then(j => { titles[it.vid] = j.title || ""; render(); }).catch(() => {});
+    }
+  });
+}
+
+$("openScreen").onclick = () => { window.open("/screen", "song-screen"); };   // ชื่อหน้าต่างเดิม กดซ้ำไม่เปิดเพิ่ม
+$("skip").onclick = () => act("/api/admin/skip", {}, "ส่งคำสั่งข้ามแล้ว");
+$("clear").onclick = () => { const n = pending().length; if (n && confirm("ล้างคิวทั้งหมด " + n + " เพลง?")) act("/api/admin/clear", {}, "ล้างคิวแล้ว"); };
+
+const es = new EventSource("/events");
+es.onopen = () => { $("conn").textContent = "เชื่อมต่อแล้ว"; $("conn").classList.remove("off"); };
+es.onerror = () => { $("conn").textContent = "ขาดการเชื่อมต่อ กำลังลองใหม่…"; $("conn").classList.add("off"); };
+es.onmessage = e => { const s = JSON.parse(e.data); queue = s.queue; now = s.now; render(); };
+render();
+</script>
+</body>
+</html>
